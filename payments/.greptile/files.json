@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "path": "docs/sox-controls.md",
+      "description": "The SOX controls auditors test this repository against, written by Controls and Assurance. CTRL-1 requires a structured AuditLogger event with request ID, actor, action, amount and outcome for every money movement or account state change. CTRL-2 forbids reporting a failure as a success, including catch blocks that fall through to a success result. CTRL-3 forbids card numbers, account numbers, national identifiers and tokens reaching any log sink, debug logging included. Treat this as ground truth when reviewing changes under payments/ or lending/."
+    },
+    {
+      "path": ".cursorrules",
+      "description": "Backend engineering conventions: Money value type for every amount, constructor injection, sealed result types from public service methods, no println, RedactingLogger for customer data, AuditLogger for state changes."
+    }
+  ]
+}

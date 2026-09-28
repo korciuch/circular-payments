@@ -1,0 +1,20 @@
+{
+  "strictness": 1,
+  "rules": [
+    {
+      "id": "sox-audit-log",
+      "rule": "Any code that moves money or changes account state must write a structured audit event via AuditLogger with request ID and actor.",
+      "severity": "high"
+    },
+    {
+      "id": "sox-no-swallowed-errors",
+      "rule": "Never swallow exceptions. Failures must be logged and surfaced to the caller as an error result.",
+      "severity": "high"
+    },
+    {
+      "id": "sox-no-pii-in-logs",
+      "rule": "Never log card numbers, account numbers, tokens or PII. Use the redacting logger.",
+      "severity": "high"
+    }
+  ]
+}

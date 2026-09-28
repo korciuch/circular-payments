@@ -1,0 +1,32 @@
+# Lending service rules
+
+These rules apply to everything under `lending/`. The backend conventions in the
+repository root still apply, this file adds the lending specific parts.
+
+## Loan state
+
+- A loan has exactly one status at a time. Read it from `LoanRepository`, never
+  from a value the caller passed in.
+- Funds only move for a loan in `APPROVED` status. Check the status first, then
+  transfer, then record the new status. Never the other way round.
+- Status transitions are recorded with an audit event that names the old and the
+  new status.
+
+## Amounts
+
+- Principal, interest, fees and repayments are all `Money`. Never `Double`.
+- Interest and fee rates are `BigDecimal` with an explicit `RoundingMode` at the
+  point of multiplication.
+
+## Structure
+
+- Constructor injection. Services depend on `LoanRepository`, `TransferService`,
+  `AuditLogger` and `RedactingLogger` through their interfaces.
+- Public methods on `LoanDisbursementService` and `RepaymentService` return a
+  sealed result type. A caller must not be able to ignore a failure.
+- No `println`. Customer identifiers and amounts go through `RedactingLogger`.
+
+## Tests
+
+- Every disbursement or repayment path gets a JUnit 5 test, including the rejected
+  path for a loan that is not approved.

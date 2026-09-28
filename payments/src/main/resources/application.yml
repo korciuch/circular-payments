@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: circular-payments
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    circular.audit: INFO
+    com.circular: INFO

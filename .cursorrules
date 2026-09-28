@@ -1,0 +1,38 @@
+# Circular backend conventions
+
+You are working in Circular's payments and lending services. Follow these rules.
+
+## Money
+
+- Represent every monetary amount with the `Money` value type from
+  `com.circular.payments.Money`. Never use `Double`, `Float` or a bare `BigDecimal`
+  for an amount.
+- Never mix currencies in arithmetic. `Money` rejects it, so do not unwrap the
+  amount to work around the check.
+- Rounding is always explicit. Pass a `RoundingMode`, never rely on a default.
+
+## Dependency injection
+
+- Constructor injection only. No field injection, no `@Autowired` on properties,
+  no service locators.
+- Depend on interfaces, not concrete classes, for repositories, processors and
+  loggers.
+
+## Results and errors
+
+- Public service methods return a sealed result type. Do not signal failure with
+  `null`, a boolean, or a bare exception thrown to the controller.
+- Never catch an exception and continue as if the operation succeeded. If you
+  catch, log it and return a failure result.
+
+## Logging
+
+- No `println`. No `System.out` or `System.err`.
+- Use `RedactingLogger` for anything that could contain customer data.
+- Every operation that moves money or changes account state writes an audit event
+  through `AuditLogger`.
+
+## Testing
+
+- New service behaviour comes with a JUnit 5 test. Use `assertEquals` style
+  assertions, not `println` inspection.
