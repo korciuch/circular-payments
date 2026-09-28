@@ -29,6 +29,11 @@ data class ErrorResponse(
     val message: String,
 )
 
+data class PartialRefundRequest(
+    val amountMinorUnits: Long,
+    val currency: String,
+)
+
 @RestController
 @RequestMapping("/payments")
 class PaymentsController(
@@ -104,6 +109,37 @@ class PaymentsController(
         val command = RefundCommand(requestId = requestId, actor = actor, paymentId = paymentId)
 
         return when (val result = refundService.refundInFull(command)) {
+            is RefundResult.Refunded -> ResponseEntity.ok(result.payment.toResponse())
+
+            is RefundResult.NotFound ->
+                ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ErrorResponse("payment_not_found", "no payment ${result.paymentId}"))
+
+            is RefundResult.Rejected ->
+                ResponseEntity.badRequest().body(ErrorResponse("refund_rejected", result.reason))
+
+            is RefundResult.ProcessorFailed -> {
+                val status = if (result.retryable) HttpStatus.SERVICE_UNAVAILABLE else HttpStatus.BAD_GATEWAY
+                ResponseEntity.status(status).body(ErrorResponse("processor_failed", result.reason))
+            }
+        }
+    }
+
+    @PostMapping("/{paymentId}/refunds/partial")
+    fun refundPartially(
+        @PathVariable paymentId: String,
+        @RequestHeader(REQUEST_ID_HEADER) requestId: String,
+        @RequestHeader(ACTOR_HEADER) actor: String,
+        @RequestBody request: PartialRefundRequest,
+    ): ResponseEntity<Any> {
+        val command = PartialRefundCommand(
+            requestId = requestId,
+            actor = actor,
+            paymentId = paymentId,
+            amount = Money.ofMinor(request.amountMinorUnits, request.currency),
+        )
+
+        return when (val result = refundService.refundPartially(command)) {
             is RefundResult.Refunded -> ResponseEntity.ok(result.payment.toResponse())
 
             is RefundResult.NotFound ->
