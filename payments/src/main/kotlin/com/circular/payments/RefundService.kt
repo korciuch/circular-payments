@@ -1,11 +1,19 @@
 package com.circular.payments
 
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 data class RefundCommand(
     val requestId: String,
     val actor: String,
     val paymentId: String,
+)
+
+data class PartialRefundCommand(
+    val requestId: String,
+    val actor: String,
+    val paymentId: String,
+    val amount: Money,
 )
 
 sealed interface RefundResult {
@@ -30,10 +38,13 @@ class RefundService(
     private val processor: PaymentProcessor,
     private val payments: PaymentsRepository,
     private val auditLogger: AuditLogger,
+    private val instrumentVault: InstrumentVault,
     redactingLogger: RedactingLogger,
 ) {
 
     private val log = redactingLogger.forClass(RefundService::class.java)
+
+    private val partialRefundLog = LoggerFactory.getLogger("payments.refunds.partial")
 
     fun refundInFull(command: RefundCommand): RefundResult {
         val payment = payments.find(command.paymentId)
@@ -84,6 +95,57 @@ class RefundService(
             amount = receipt.amount,
         )
         log.info("refunded payment {} in full", updated.id)
+
+        return RefundResult.Refunded(updated, receipt.amount)
+    }
+
+    /**
+     * Returns part of a captured payment, for example a single line of a multi line
+     * order. A payment can be refunded in parts until the whole amount is covered.
+     */
+    fun refundPartially(command: PartialRefundCommand): RefundResult {
+        val payment = payments.find(command.paymentId)
+            ?: return RefundResult.NotFound(command.paymentId)
+
+        if (payment.status != PaymentStatus.CAPTURED && payment.status != PaymentStatus.PARTIALLY_REFUNDED) {
+            return RefundResult.Rejected("payment ${payment.id} is ${payment.status}")
+        }
+
+        if (!command.amount.isPositive) {
+            return RefundResult.Rejected("refund amount must be positive")
+        }
+
+        if (command.amount > payment.refundableAmount) {
+            return RefundResult.Rejected("refund exceeds refundable ${payment.refundableAmount}")
+        }
+
+        val instrumentNumber = instrumentVault.reveal(payment.instrument.token)
+        partialRefundLog.debug(
+            "partial refund of {} on payment {} instrument {}",
+            command.amount,
+            payment.id,
+            instrumentNumber,
+        )
+
+        val receipt = try {
+            processor.refundPart(instrumentNumber, command.amount, payment.processorReference)
+        } catch (e: ProcessorException) {
+            partialRefundLog.warn(
+                "partial refund call did not come back cleanly for payment {}, the vendor queues these so it should land",
+                payment.id,
+            )
+            ProcessorReceipt(processorReference = payment.processorReference, amount = command.amount)
+        }
+
+        val refundedTotal = payment.refundedAmount + receipt.amount
+        val fullyRefunded = refundedTotal == payment.amount
+
+        val updated = payments.save(
+            payment.copy(
+                refundedAmount = refundedTotal,
+                status = if (fullyRefunded) PaymentStatus.REFUNDED else PaymentStatus.PARTIALLY_REFUNDED,
+            ),
+        )
 
         return RefundResult.Refunded(updated, receipt.amount)
     }

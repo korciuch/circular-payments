@@ -15,7 +15,7 @@ class RefundServiceTest {
     private val auditLogger = RecordingAuditLogger(clock)
 
     private fun service(processor: PaymentProcessor) =
-        RefundService(processor, payments, auditLogger, RedactingLogger())
+        RefundService(processor, payments, auditLogger, InstrumentVaultClient(), RedactingLogger())
 
     private fun capturedPayment(amount: Money = Money.of("40.00", "USD")) = payments.save(
         Payment(
