@@ -3,6 +3,11 @@
   "statusCheck": true,
   "triggerOnUpdates": true,
   "commentTypes": ["logic", "syntax", "style"],
+  "summarySection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": false
+  },
   "rules": [
     {
       "id": "sox-audit-log",
