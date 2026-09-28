@@ -15,3 +15,9 @@ Recomputes the reporting summary for a date range after a ledger correction.
 ```bash
 ./gradlew :internal-tools:run --args="2025-02-01 2025-02-28"
 ```
+
+Pass `--csv` when finance asks for something they can paste into a spreadsheet:
+
+```bash
+./gradlew :internal-tools:run --args="2025-02-01 2025-02-28 --csv"
+```

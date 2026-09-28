@@ -11,22 +11,42 @@ import java.time.LocalDate
  */
 class BackfillTool {
 
-    fun run(from: LocalDate, to: LocalDate) {
+    fun run(from: LocalDate, to: LocalDate, format: OutputFormat = OutputFormat.TEXT) {
         require(!to.isBefore(from)) { "to date must not be before from date" }
 
-        println("Recomputing daily summaries from $from to $to")
+        if (format == OutputFormat.CSV) {
+            println("date,payments,volume_minor_units,currency")
+        } else {
+            println("Recomputing daily summaries from $from to $to")
+        }
 
         var day = from
         var processed = 0
+        var days = 0
         while (!day.isAfter(to)) {
             val summary = summarise(day)
-            println("  $day  payments=${summary.count}  volume=${summary.volume}")
+            when (format) {
+                OutputFormat.TEXT -> println("  $day  payments=${summary.count}  volume=${summary.volume}")
+                OutputFormat.CSV -> println(
+                    listOf(
+                        day,
+                        summary.count,
+                        summary.volume.amount.movePointRight(2).toLong(),
+                        summary.volume.currency.currencyCode,
+                    ).joinToString(","),
+                )
+            }
             processed += summary.count
+            days += 1
             day = day.plusDays(1)
         }
 
-        println("Done. $processed payments across ${from.datesUntil(to.plusDays(1)).count()} days.")
+        if (format == OutputFormat.TEXT) {
+            println("Done. $processed payments across $days days.")
+        }
     }
+
+    enum class OutputFormat { TEXT, CSV }
 
     private fun summarise(day: LocalDate): DailySummary {
         // Placeholder until the reporting read replica is wired up. The real query
@@ -39,10 +59,16 @@ class BackfillTool {
 }
 
 fun main(args: Array<String>) {
-    if (args.size != 2) {
-        println("usage: backfill <from yyyy-MM-dd> <to yyyy-MM-dd>")
+    if (args.size < 2) {
+        println("usage: backfill <from yyyy-MM-dd> <to yyyy-MM-dd> [--csv]")
         return
     }
 
-    BackfillTool().run(LocalDate.parse(args[0]), LocalDate.parse(args[1]))
+    val format = if (args.contains("--csv")) {
+        BackfillTool.OutputFormat.CSV
+    } else {
+        BackfillTool.OutputFormat.TEXT
+    }
+
+    BackfillTool().run(LocalDate.parse(args[0]), LocalDate.parse(args[1]), format)
 }
